@@ -546,15 +546,20 @@
 
         // Google API 설정 - 클라이언트 ID만 사용
         const GOOGLE_CONFIG = {
-            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',
+            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com', // 이 부분을 실제 클라이언트 ID로 교체
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
         };
 
         const ADMIN_EMAIL = 'pmktb2c@gmail.com';
 
-        // 초기화
+        // 디버깅을 위한 초기화 체크
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== 디버깅 정보 ===');
+            console.log('현재 URL:', window.location.href);
+            console.log('클라이언트 ID 설정됨:', GOOGLE_CONFIG.clientId !== '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com');
+            console.log('관리자 이메일:', ADMIN_EMAIL);
+            
             initializeGoogleAPI();
             updateMonthTitle();
             updateCalendarDisplay();
@@ -611,7 +616,7 @@
 
         // 편집자 로그인
         async function adminLogin() {
-            if (GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+            if (GOOGLE_CONFIG.clientId === '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com') {
                 alert('Google 클라이언트 ID를 설정해주세요.\n\n설정 방법:\n1. Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성\n2. 승인된 JavaScript 원본에 현재 도메인 추가\n3. 코드에서 YOUR_GOOGLE_CLIENT_ID_HERE를 실제 클라이언트 ID로 교체');
                 return;
             }
