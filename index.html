@@ -580,7 +580,7 @@
         // Google API 설정 - 실제 키로 교체해야 함
         const GOOGLE_CONFIG = {
             apiKey: 'YOUR_GOOGLE_API_KEY_HERE',        // Google Cloud Console에서 생성한 API 키
-            clientId: 'Y936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
+            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
         };
@@ -1086,6 +1086,9 @@
                 `).join('')}
             `;
         }
+
+        // 동기화 함수 (누락된 함수 복원)
+        async function syncCalendars() {
             const syncIcon = document.getElementById('syncIcon');
             const syncBtn = document.getElementById('syncBtn');
             
@@ -1096,7 +1099,7 @@
                 if (isAdminLoggedIn) {
                     await loadEventsFromGoogle();
                 } else {
-                    loadPublicCalendars();
+                    await loadPublicCalendars();
                 }
                 
                 setTimeout(() => {
@@ -1287,43 +1290,6 @@
 
         // 테스트용 캘린더 시뮬레이션
         function simulateTestCalendars() {
-            googleCalendars = [
-                {
-                    id: 'primary',
-                    summary: '내 캘린더',
-                    description: '기본 개인 캘린더',
-                    backgroundColor: '#FF6B6B'
-                },
-                {
-                    id: 'marketing@company.com',
-                    summary: '마케팅 팀',
-                    description: '마케팅 부서 캘린더',
-                    backgroundColor: '#4ECDC4'
-                },
-                {
-                    id: 'holidays@group.calendar.google.com',
-                    summary: '대한민국 공휴일',
-                    description: '국가 공휴일 및 기념일',
-                    backgroundColor: '#96CEB4'
-                }
-            ];
-            
-            renderCalendarList();
-            selectedCalendars.add('primary');
-            
-            // 테스트용 이벤트
-            calendarEvents = {
-                '2025-06-15': [
-                    { id: '1', title: '현충일', calendar: 'holidays', color: '#96CEB4' }
-                ],
-                '2025-06-06': [
-                    { id: '2', title: '테스트 이벤트', calendar: 'primary', color: '#FF6B6B' }
-                ]
-            };
-            
-            updateCalendarDisplay();
-            updateCalendarInfo();
-        }
             googleCalendars = [
                 {
                     id: 'primary',
