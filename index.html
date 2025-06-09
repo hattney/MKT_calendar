@@ -575,10 +575,14 @@
             }
 
             try {
+                // gapi 로드 대기
                 await new Promise((resolve) => {
                     gapi.load('client:auth2', resolve);
                 });
 
+                console.log('gapi 로드 완료, 클라이언트 초기화 중...');
+
+                // 클라이언트 초기화
                 await gapi.client.init({
                     clientId: GOOGLE_CONFIG.clientId,
                     discoveryDocs: [GOOGLE_CONFIG.discoveryDoc],
@@ -586,9 +590,16 @@
                 });
 
                 console.log('Google API 초기화 완료');
+
+                // Auth 인스턴스 확인
+                const authInstance = gapi.auth2.getAuthInstance();
+                if (!authInstance) {
+                    throw new Error('Auth 인스턴스 생성 실패');
+                }
+
+                console.log('Auth 인스턴스 생성 완료');
                 
                 // 자동 로그인 확인
-                const authInstance = gapi.auth2.getAuthInstance();
                 if (authInstance.isSignedIn.get()) {
                     const user = authInstance.currentUser.get();
                     const profile = user.getBasicProfile();
@@ -609,25 +620,48 @@
             } catch (error) {
                 console.error('Google API 초기화 실패:', error);
                 console.error('에러 상세:', error.details || error.message);
-                alert('Google API 초기화에 실패했습니다. 클라이언트 ID를 확인해주세요.\n\n에러: ' + (error.details || error.message));
+                
+                let errorMessage = 'Google API 초기화에 실패했습니다.';
+                
+                if (error.details && error.details.includes('origin')) {
+                    errorMessage += '\n\nGoogle Cloud Console에서 현재 도메인을 승인된 JavaScript 원본에 추가해주세요.\n도메인: ' + window.location.origin;
+                } else if (error.message && error.message.includes('invalid_client')) {
+                    errorMessage += '\n\n클라이언트 ID가 잘못되었습니다. Google Cloud Console에서 확인해주세요.';
+                }
+                
+                alert(errorMessage);
                 updateLoginStatus();
             }
         }
 
         // 편집자 로그인
         async function adminLogin() {
-            if (GOOGLE_CONFIG.clientId === '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com') {
+            if (GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
                 alert('Google 클라이언트 ID를 설정해주세요.\n\n설정 방법:\n1. Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성\n2. 승인된 JavaScript 원본에 현재 도메인 추가\n3. 코드에서 YOUR_GOOGLE_CLIENT_ID_HERE를 실제 클라이언트 ID로 교체');
                 return;
             }
 
             try {
                 console.log('로그인 시도 중...');
+                
+                // Auth 인스턴스 확인
                 const authInstance = gapi.auth2.getAuthInstance();
                 
                 if (!authInstance) {
-                    throw new Error('Google Auth 인스턴스가 초기화되지 않았습니다.');
+                    console.error('Auth 인스턴스가 없습니다. API 재초기화를 시도합니다.');
+                    await initializeGoogleAPI();
+                    
+                    // 재초기화 후 다시 확인
+                    const retryAuthInstance = gapi.auth2.getAuthInstance();
+                    if (!retryAuthInstance) {
+                        throw new Error('Google Auth 인스턴스를 생성할 수 없습니다. 클라이언트 ID와 도메인 설정을 확인해주세요.');
+                    }
+                    
+                    // 재귀 호출로 로그인 재시도
+                    return await adminLogin();
                 }
+
+                console.log('Auth 인스턴스 확인됨, 로그인 진행...');
 
                 const user = await authInstance.signIn({
                     prompt: 'select_account'
@@ -662,6 +696,8 @@
                     errorMessage = '접근이 거부되었습니다. 권한을 확인해주세요.';
                 } else if (error.error === 'invalid_client') {
                     errorMessage = '클라이언트 ID가 잘못되었습니다. Google Cloud Console에서 설정을 확인해주세요.';
+                } else if (error.message && error.message.includes('Auth')) {
+                    errorMessage = 'Google 인증 초기화에 실패했습니다.\n\n해결방법:\n1. 클라이언트 ID 확인\n2. Google Cloud Console에서 도메인 등록 확인\n3. 페이지 새로고침 후 재시도';
                 } else if (error.details) {
                     errorMessage += '\n\n상세 오류: ' + error.details;
                 } else if (error.message) {
