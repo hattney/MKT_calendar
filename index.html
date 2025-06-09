@@ -443,7 +443,7 @@
                     <!-- 동기화 버튼 -->
                     <button class="btn btn-success" id="syncBtn" onclick="syncCalendars()">
                         <span id="syncIcon">🔄</span>
-                        동기화
+                        <span id="syncText">동기화</span>
                     </button>
 
                     <!-- 로그아웃 버튼 -->
@@ -539,13 +539,18 @@
         let calendarEvents = {};
         let isSettingsVisible = false;
         let publicCalendarIds = []; // 편집자가 설정한 공개 캘린더 ID들
+        let publicCalendarSettings = []; // 공개 캘린더 설정 정보
 
         // Google API 설정 - 실제 키로 교체해야 함
         const GOOGLE_CONFIG = {
-            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',
+            apiKey: 'YOUR_GOOGLE_API_KEY_HERE',        // Google Cloud Console에서 생성한 API 키
+            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
         };
+
+        // 임시 테스트용 - API 키 없이도 테스트할 수 있도록 수정
+        let isTestMode = false;
 
         const ADMIN_EMAIL = 'pmktb2c@gmail.com';
 
@@ -554,11 +559,20 @@
             initializeGoogleAPI();
             updateMonthTitle();
             updateCalendarDisplay();
-            loadPublicCalendars();
+            loadPublicCalendars(); // 페이지 로드시 공개 캘린더 바로 로드
         });
 
         // Google API 초기화
         async function initializeGoogleAPI() {
+            // API 키가 설정되지 않은 경우 테스트 모드로 실행
+            if (GOOGLE_CONFIG.apiKey === 'YOUR_GOOGLE_API_KEY_HERE' || 
+                GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+                console.warn('Google API 키가 설정되지 않았습니다. 테스트 모드로 실행합니다.');
+                isTestMode = true;
+                updateLoginStatus();
+                return;
+            }
+
             try {
                 await new Promise((resolve) => {
                     gapi.load('client:auth2', resolve);
@@ -586,15 +600,32 @@
                 }
 
                 updateLoginStatus();
+                
+                // API 초기화 완료 후 공개 캘린더 로드
+                if (!isAdminLoggedIn) {
+                    await loadPublicCalendars();
+                }
 
             } catch (error) {
                 console.error('Google API 초기화 실패:', error);
-                updateStatus('연결 실패', false);
+                alert('Google API 초기화에 실패했습니다. API 키와 클라이언트 ID를 확인해주세요.');
+                isTestMode = true;
+                updateLoginStatus();
             }
         }
 
         // 편집자 로그인
         async function adminLogin() {
+            if (isTestMode) {
+                alert('테스트 모드입니다.\n\n실제 Google API 키를 설정하면:\n1. Google Cloud Console에서 API 키 생성\n2. OAuth 2.0 클라이언트 ID 생성\n3. 코드의 GOOGLE_CONFIG 부분에 실제 키 입력\n\n현재는 데모용으로만 동작합니다.');
+                
+                // 테스트용 로그인 시뮬레이션
+                isAdminLoggedIn = true;
+                updateLoginStatus();
+                simulateTestCalendars();
+                return;
+            }
+
             try {
                 const authInstance = gapi.auth2.getAuthInstance();
                 const user = await authInstance.signIn();
@@ -644,6 +675,7 @@
             const adminLoginBtn2 = document.getElementById('adminLoginBtn2');
             const logoutBtn = document.getElementById('logoutBtn');
             const syncBtn = document.getElementById('syncBtn');
+            const syncText = document.getElementById('syncText');
 
             if (isAdminLoggedIn) {
                 statusDot.className = 'status-dot status-connected';
@@ -652,13 +684,15 @@
                 if (adminLoginBtn2) adminLoginBtn2.classList.add('hidden');
                 logoutBtn.classList.remove('hidden');
                 syncBtn.disabled = false;
+                if (syncText) syncText.textContent = '동기화';
             } else {
-                statusDot.className = 'status-dot status-disconnected';
+                statusDot.className = 'status-dot status-connected';
                 statusText.textContent = '공개 캘린더 보기';
                 adminLoginBtn.classList.remove('hidden');
                 if (adminLoginBtn2) adminLoginBtn2.classList.remove('hidden');
                 logoutBtn.classList.add('hidden');
                 syncBtn.disabled = false;
+                if (syncText) syncText.textContent = '새로고침';
             }
         }
 
@@ -749,10 +783,22 @@
 
         // 공개 캘린더 설정 저장 (편집자 전용)
         function savePublicCalendarSettings() {
-            // 로컬 스토리지에 공개 캘린더 설정 저장
-            const publicSettings = Array.from(selectedCalendars);
-            localStorage.setItem('publicCalendarIds', JSON.stringify(publicSettings));
-            publicCalendarIds = publicSettings;
+            // 선택된 캘린더들의 정보를 함께 저장
+            const publicSettings = {
+                calendarIds: Array.from(selectedCalendars),
+                calendarData: googleCalendars.filter(cal => selectedCalendars.has(cal.id)).map(cal => ({
+                    id: cal.id,
+                    summary: cal.summary,
+                    description: cal.description,
+                    backgroundColor: cal.backgroundColor || '#4285f4'
+                }))
+            };
+            
+            localStorage.setItem('publicCalendarSettings', JSON.stringify(publicSettings));
+            publicCalendarIds = publicSettings.calendarIds;
+            publicCalendarSettings = publicSettings.calendarData;
+            
+            console.log('공개 캘린더 설정 저장됨:', publicSettings);
         }
 
         // 구글 캘린더에서 이벤트 로드 (편집자 전용)
@@ -805,15 +851,29 @@
         }
 
         // 공개 캘린더 로드 (일반 사용자용)
-        function loadPublicCalendars() {
+        async function loadPublicCalendars() {
             // 로컬 스토리지에서 편집자가 설정한 공개 캘린더 목록 로드
-            const savedSettings = localStorage.getItem('publicCalendarIds');
+            const savedSettings = localStorage.getItem('publicCalendarSettings');
+            
             if (savedSettings) {
-                publicCalendarIds = JSON.parse(savedSettings);
+                const settings = JSON.parse(savedSettings);
+                publicCalendarIds = settings.calendarIds || [];
+                publicCalendarSettings = settings.calendarData || [];
                 
-                if (publicCalendarIds.length > 0 && !isAdminLoggedIn) {
-                    loadPublicEvents(publicCalendarIds);
+                console.log('공개 캘린더 설정 로드됨:', settings);
+                
+                if (publicCalendarIds.length > 0) {
+                    await loadPublicEvents(publicCalendarIds);
+                    updateCalendarInfo();
+                    
+                    // 비로그인 상태에서 설정 패널에 공개 캘린더 목록 표시
+                    if (!isAdminLoggedIn) {
+                        renderPublicCalendarList();
+                    }
                 }
+            } else {
+                console.log('저장된 공개 캘린더 설정이 없습니다.');
+                updateCalendarInfo();
             }
         }
 
@@ -829,6 +889,7 @@
 
                 for (const calendarId of calendarIds) {
                     try {
+                        // 공개 캘린더는 API 키만으로 접근 가능
                         const response = await gapi.client.calendar.events.list({
                             calendarId: calendarId,
                             timeMin: startTime,
@@ -838,6 +899,9 @@
                         });
 
                         const events = response.result.items || [];
+                        const calendarInfo = publicCalendarSettings.find(cal => cal.id === calendarId);
+                        const calendarColor = calendarInfo ? calendarInfo.backgroundColor : '#10b981';
+                        
                         events.forEach(event => {
                             const eventDate = event.start.date || event.start.dateTime.split('T')[0];
                             if (!calendarEvents[eventDate]) {
@@ -847,24 +911,53 @@
                                 id: event.id,
                                 title: event.summary || '(제목 없음)',
                                 calendar: calendarId,
-                                color: '#10b981',
+                                color: calendarColor,
                                 description: event.description || ''
                             });
                         });
+                        
+                        console.log(`캘린더 ${calendarId}에서 ${events.length}개 이벤트 로드됨`);
                     } catch (error) {
-                        console.log(`캘린더 ${calendarId} 로드 실패:`, error);
+                        console.log(`캘린더 ${calendarId} 로드 실패 (비공개이거나 접근 권한 없음):`, error);
                     }
                 }
 
                 updateCalendarDisplay();
+                console.log('공개 캘린더 이벤트 로드 완료');
 
             } catch (error) {
                 console.error('공개 이벤트 로드 실패:', error);
             }
         }
 
-        // 캘린더 동기화
-        async function syncCalendars() {
+        // 공개 캘린더 목록 렌더링 (비로그인 상태)
+        function renderPublicCalendarList() {
+            const calendarListEl = document.getElementById('calendarList');
+            
+            if (publicCalendarSettings.length === 0) {
+                calendarListEl.innerHTML = '<div style="text-align: center; color: #6b7280;">편집자가 설정한 공개 캘린더가 없습니다.</div>';
+                return;
+            }
+
+            calendarListEl.innerHTML = `
+                <div style="margin-bottom: 12px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0369a1;">
+                    📖 편집자가 공개한 캘린더 목록
+                </div>
+                ${publicCalendarSettings.map(calendar => `
+                    <div class="calendar-item" style="opacity: 0.9;">
+                        <div style="width: 16px; height: 16px; background: #10b981; border-radius: 50%; margin-top: 2px;"></div>
+                        <div class="calendar-details">
+                            <div class="calendar-name">
+                                <div class="calendar-color" style="background-color: ${calendar.backgroundColor}"></div>
+                                ${calendar.summary}
+                            </div>
+                            ${calendar.description ? `<div class="calendar-description">${calendar.description}</div>` : ''}
+                            <div class="calendar-id">${calendar.id}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
             const syncIcon = document.getElementById('syncIcon');
             const syncBtn = document.getElementById('syncBtn');
             
@@ -1019,6 +1112,46 @@
             }
             
             daysGrid.innerHTML = daysHTML;
+        }
+
+        // 테스트용 캘린더 시뮬레이션
+        function simulateTestCalendars() {
+            googleCalendars = [
+                {
+                    id: 'primary',
+                    summary: '내 캘린더',
+                    description: '기본 개인 캘린더',
+                    backgroundColor: '#FF6B6B'
+                },
+                {
+                    id: 'marketing@company.com',
+                    summary: '마케팅 팀',
+                    description: '마케팅 부서 캘린더',
+                    backgroundColor: '#4ECDC4'
+                },
+                {
+                    id: 'holidays@group.calendar.google.com',
+                    summary: '대한민국 공휴일',
+                    description: '국가 공휴일 및 기념일',
+                    backgroundColor: '#96CEB4'
+                }
+            ];
+            
+            renderCalendarList();
+            selectedCalendars.add('primary');
+            
+            // 테스트용 이벤트
+            calendarEvents = {
+                '2025-06-15': [
+                    { id: '1', title: '현충일', calendar: 'holidays', color: '#96CEB4' }
+                ],
+                '2025-06-06': [
+                    { id: '2', title: '테스트 이벤트', calendar: 'primary', color: '#FF6B6B' }
+                ]
+            };
+            
+            updateCalendarDisplay();
+            updateCalendarInfo();
         }
 
         // 이벤트 상세 정보 표시 (클릭시)
