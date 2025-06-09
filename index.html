@@ -296,24 +296,41 @@
             font-weight: 600;
             color: #475569;
             border-right: 1px solid #e2e8f0;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .weekday:last-child {
             border-right: none;
         }
 
+        .weekday.sunday {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
+        .weekday.saturday {
+            color: #3b82f6;
+            font-weight: 700;
+        }
+
         .days-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
+            grid-auto-rows: minmax(120px, auto);
         }
 
         .day-cell {
             min-height: 120px;
+            max-height: 180px;
             padding: 8px;
             border-right: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
             background: white;
             position: relative;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .day-cell:last-child {
@@ -326,7 +343,26 @@
         }
 
         .day-cell.today {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+        }
+
+        .day-cell.sunday {
+            background: #fef2f2;
+        }
+
+        .day-cell.saturday {
             background: #eff6ff;
+        }
+
+        .day-number.sunday {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
+        .day-number.saturday {
+            color: #3b82f6;
+            font-weight: 700;
         }
 
         .day-number {
@@ -508,13 +544,13 @@
             <div class="calendar-grid">
                 <!-- 요일 헤더 -->
                 <div class="weekdays">
-                    <div class="weekday">일</div>
+                    <div class="weekday sunday">일</div>
                     <div class="weekday">월</div>
                     <div class="weekday">화</div>
                     <div class="weekday">수</div>
                     <div class="weekday">목</div>
                     <div class="weekday">금</div>
-                    <div class="weekday">토</div>
+                    <div class="weekday saturday">토</div>
                 </div>
 
                 <!-- 날짜 그리드 -->
@@ -636,6 +672,7 @@
                     updateLoginStatus();
                     await loadGoogleCalendars();
                     updateCalendarInfo();
+                    console.log('편집자 로그인 완료');
                 } else {
                     alert('편집자 계정(pmktb2c@gmail.com)으로만 로그인 가능합니다.');
                     authInstance.signOut();
@@ -658,10 +695,13 @@
                 updateLoginStatus();
                 updateCalendarDisplay();
                 updateCalendarInfo();
-                document.getElementById('calendarList').innerHTML = '<div class="loading">로그인 후 캘린더를 확인하세요</div>';
                 
                 // 로그아웃 후 공개 캘린더 다시 로드
-                loadPublicCalendars();
+                setTimeout(async () => {
+                    await loadPublicCalendars();
+                }, 500);
+                
+                console.log('편집자 로그아웃 완료');
             } catch (error) {
                 console.error('로그아웃 실패:', error);
             }
@@ -852,27 +892,62 @@
 
         // 공개 캘린더 로드 (일반 사용자용)
         async function loadPublicCalendars() {
+            console.log('공개 캘린더 로드 시작...');
+            
             // 로컬 스토리지에서 편집자가 설정한 공개 캘린더 목록 로드
             const savedSettings = localStorage.getItem('publicCalendarSettings');
             
             if (savedSettings) {
-                const settings = JSON.parse(savedSettings);
-                publicCalendarIds = settings.calendarIds || [];
-                publicCalendarSettings = settings.calendarData || [];
-                
-                console.log('공개 캘린더 설정 로드됨:', settings);
-                
-                if (publicCalendarIds.length > 0) {
-                    await loadPublicEvents(publicCalendarIds);
-                    updateCalendarInfo();
+                try {
+                    const settings = JSON.parse(savedSettings);
+                    publicCalendarIds = settings.calendarIds || [];
+                    publicCalendarSettings = settings.calendarData || [];
                     
-                    // 비로그인 상태에서 설정 패널에 공개 캘린더 목록 표시
-                    if (!isAdminLoggedIn) {
-                        renderPublicCalendarList();
+                    console.log('저장된 공개 캘린더 설정:', settings);
+                    
+                    if (publicCalendarIds.length > 0) {
+                        // Google API가 준비되었는지 확인
+                        if (typeof gapi !== 'undefined' && gapi.client && gapi.client.calendar) {
+                            await loadPublicEvents(publicCalendarIds);
+                        } else {
+                            console.log('Google API가 아직 준비되지 않음. 잠시 후 재시도...');
+                            setTimeout(async () => {
+                                if (typeof gapi !== 'undefined' && gapi.client && gapi.client.calendar) {
+                                    await loadPublicEvents(publicCalendarIds);
+                                }
+                            }, 2000);
+                        }
+                        
+                        updateCalendarInfo();
+                        
+                        // 비로그인 상태에서 설정 패널에 공개 캘린더 목록 표시
+                        if (!isAdminLoggedIn) {
+                            renderPublicCalendarList();
+                        }
+                    } else {
+                        console.log('공개 캘린더 ID가 없습니다.');
+                        updateCalendarInfo();
                     }
+                } catch (error) {
+                    console.error('공개 캘린더 설정 파싱 오류:', error);
+                    updateCalendarInfo();
                 }
             } else {
                 console.log('저장된 공개 캘린더 설정이 없습니다.');
+                
+                // 편집자가 아직 설정하지 않은 경우 안내 메시지
+                if (!isAdminLoggedIn) {
+                    const calendarListEl = document.getElementById('calendarList');
+                    if (calendarListEl) {
+                        calendarListEl.innerHTML = `
+                            <div style="text-align: center; padding: 20px; color: #6b7280;">
+                                <div style="margin-bottom: 12px;">📝</div>
+                                <div style="font-weight: 500; margin-bottom: 8px;">아직 공개된 캘린더가 없습니다</div>
+                                <div style="font-size: 13px;">편집자가 캘린더를 설정하면 여기에 표시됩니다</div>
+                            </div>
+                        `;
+                    }
+                }
                 updateCalendarInfo();
             }
         }
@@ -934,14 +1009,27 @@
         function renderPublicCalendarList() {
             const calendarListEl = document.getElementById('calendarList');
             
+            if (!calendarListEl) {
+                console.error('calendarList 요소를 찾을 수 없습니다.');
+                return;
+            }
+            
             if (publicCalendarSettings.length === 0) {
-                calendarListEl.innerHTML = '<div style="text-align: center; color: #6b7280;">편집자가 설정한 공개 캘린더가 없습니다.</div>';
+                calendarListEl.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #6b7280;">
+                        <div style="margin-bottom: 12px;">📝</div>
+                        <div style="font-weight: 500; margin-bottom: 8px;">아직 공개된 캘린더가 없습니다</div>
+                        <div style="font-size: 13px;">편집자가 캘린더를 설정하면 여기에 표시됩니다</div>
+                    </div>
+                `;
                 return;
             }
 
+            console.log('공개 캘린더 목록 렌더링:', publicCalendarSettings);
+
             calendarListEl.innerHTML = `
                 <div style="margin-bottom: 12px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0369a1;">
-                    📖 편집자가 공개한 캘린더 목록
+                    📖 편집자가 공개한 캘린더 목록 (${publicCalendarSettings.length}개)
                 </div>
                 ${publicCalendarSettings.map(calendar => `
                     <div class="calendar-item" style="opacity: 0.9;">
@@ -1026,9 +1114,11 @@
                 calendarInfo.textContent = `${selectedCalendars.size}개 캘린더 연동 중`;
             } else {
                 const publicCount = publicCalendarIds.length;
-                calendarInfo.textContent = publicCount > 0 ? 
-                    `${publicCount}개 공개 캘린더 표시 중` : 
-                    '편집자가 설정한 캘린더를 확인하세요';
+                if (publicCount > 0) {
+                    calendarInfo.textContent = `${publicCount}개 공개 캘린더 표시 중`;
+                } else {
+                    calendarInfo.textContent = '편집자가 캘린더를 설정하면 여기에 표시됩니다';
+                }
             }
         }
 
@@ -1056,10 +1146,22 @@
                 const date = new Date(year, month - 1, day);
                 const dateStr = date.toISOString().split('T')[0];
                 const events = calendarEvents[dateStr] || [];
+                const dayOfWeek = date.getDay();
+                
+                let dayClasses = 'day-cell other-month';
+                let dayNumberClasses = 'day-number';
+                
+                if (dayOfWeek === 0) { // 일요일
+                    dayClasses += ' sunday';
+                    dayNumberClasses += ' sunday';
+                } else if (dayOfWeek === 6) { // 토요일
+                    dayClasses += ' saturday';
+                    dayNumberClasses += ' saturday';
+                }
                 
                 daysHTML += `
-                    <div class="day-cell other-month">
-                        <div class="day-number">${day}</div>
+                    <div class="${dayClasses}">
+                        <div class="${dayNumberClasses}">${day}</div>
                         <div class="events">
                             ${events.slice(0, 3).map(event => 
                                 `<div class="event" style="background-color: ${event.color}" title="${event.title}">${event.title}</div>`
@@ -1076,10 +1178,27 @@
                 const dateStr = date.toISOString().split('T')[0];
                 const events = calendarEvents[dateStr] || [];
                 const isToday = date.toDateString() === new Date().toDateString();
+                const dayOfWeek = date.getDay();
+                
+                let dayClasses = 'day-cell';
+                let dayNumberClasses = 'day-number';
+                
+                if (isToday) {
+                    dayClasses += ' today';
+                    dayNumberClasses += ' today';
+                }
+                
+                if (dayOfWeek === 0) { // 일요일
+                    dayClasses += ' sunday';
+                    dayNumberClasses += ' sunday';
+                } else if (dayOfWeek === 6) { // 토요일
+                    dayClasses += ' saturday';
+                    dayNumberClasses += ' saturday';
+                }
                 
                 daysHTML += `
-                    <div class="day-cell ${isToday ? 'today' : ''}">
-                        <div class="day-number ${isToday ? 'today' : ''}">${day}</div>
+                    <div class="${dayClasses}">
+                        <div class="${dayNumberClasses}">${day}</div>
                         <div class="events">
                             ${events.slice(0, 3).map(event => 
                                 `<div class="event" style="background-color: ${event.color}" title="${event.title}">${event.title}</div>`
@@ -1097,10 +1216,22 @@
                 const date = new Date(year, month + 1, day);
                 const dateStr = date.toISOString().split('T')[0];
                 const events = calendarEvents[dateStr] || [];
+                const dayOfWeek = date.getDay();
+                
+                let dayClasses = 'day-cell other-month';
+                let dayNumberClasses = 'day-number';
+                
+                if (dayOfWeek === 0) { // 일요일
+                    dayClasses += ' sunday';
+                    dayNumberClasses += ' sunday';
+                } else if (dayOfWeek === 6) { // 토요일
+                    dayClasses += ' saturday';
+                    dayNumberClasses += ' saturday';
+                }
                 
                 daysHTML += `
-                    <div class="day-cell other-month">
-                        <div class="day-number">${day}</div>
+                    <div class="${dayClasses}">
+                        <div class="${dayNumberClasses}">${day}</div>
                         <div class="events">
                             ${events.slice(0, 3).map(event => 
                                 `<div class="event" style="background-color: ${event.color}" title="${event.title}">${event.title}</div>`
@@ -1161,8 +1292,17 @@
 
         // 페이지 로드 시 실행
         window.addEventListener('load', function() {
+            console.log('페이지 로드 완료');
             updateLoginStatus();
             updateCalendarInfo();
+            
+            // 2초 후에도 공개 캘린더가 로드되지 않았다면 다시 시도
+            setTimeout(() => {
+                if (!isAdminLoggedIn && publicCalendarIds.length === 0) {
+                    console.log('공개 캘린더 재로드 시도...');
+                    loadPublicCalendars();
+                }
+            }, 2000);
         });
     </script>
 </body>
