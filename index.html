@@ -543,6 +543,7 @@
         let isSettingsVisible = false;
         let publicCalendarIds = [];
         let publicCalendarSettings = [];
+        let gapiLoaded = false; // gapi 로드 상태 확인용
 
         // Google API 설정 - 클라이언트 ID만 사용
         const GOOGLE_CONFIG = {
@@ -553,16 +554,57 @@
 
         const ADMIN_EMAIL = 'pmktb2c@gmail.com';
 
+        // Google API 스크립트 로드 확인 및 초기화
+        function waitForGapi() {
+            return new Promise((resolve, reject) => {
+                // gapi가 이미 로드되어 있으면 바로 resolve
+                if (typeof gapi !== 'undefined') {
+                    gapiLoaded = true;
+                    resolve();
+                    return;
+                }
+
+                // gapi 로드를 최대 10초 대기
+                let attempts = 0;
+                const maxAttempts = 50; // 10초 (200ms * 50)
+                
+                const checkGapi = () => {
+                    attempts++;
+                    
+                    if (typeof gapi !== 'undefined') {
+                        gapiLoaded = true;
+                        console.log('gapi 로드 완료');
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('Google API 스크립트 로드 타임아웃'));
+                    } else {
+                        setTimeout(checkGapi, 200);
+                    }
+                };
+                
+                checkGapi();
+            });
+        }
+
         // 디버깅을 위한 초기화 체크
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('=== 디버깅 정보 ===');
             console.log('현재 URL:', window.location.href);
             console.log('클라이언트 ID 설정됨:', GOOGLE_CONFIG.clientId !== '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com');
             console.log('관리자 이메일:', ADMIN_EMAIL);
+            console.log('gapi 사용 가능:', typeof gapi !== 'undefined');
             
-            initializeGoogleAPI();
             updateMonthTitle();
             updateCalendarDisplay();
+            
+            // Google API 초기화는 비동기로 처리
+            try {
+                await waitForGapi();
+                await initializeGoogleAPI();
+            } catch (error) {
+                console.error('Google API 초기화 실패:', error);
+            }
+            
             loadPublicCalendars();
         });
 
@@ -636,6 +678,21 @@
 
         // 편집자 로그인
         async function adminLogin() {
+            // gapi 로드 확인
+            if (!gapiLoaded || typeof gapi === 'undefined') {
+                alert('Google API가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+                
+                try {
+                    console.log('gapi 로드 대기 중...');
+                    await waitForGapi();
+                    await initializeGoogleAPI();
+                    console.log('gapi 로드 완료, 로그인 재시도');
+                } catch (error) {
+                    alert('Google API 로드에 실패했습니다.\n\n페이지를 새로고침한 후 다시 시도해주세요.');
+                    return;
+                }
+            }
+
             if (GOOGLE_CONFIG.clientId === '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com') {
                 alert('Google 클라이언트 ID를 설정해주세요.\n\n설정 방법:\n1. Google Cloud Console에서 OAuth 2.0 클라이언트 ID 생성\n2. 승인된 JavaScript 원본에 현재 도메인 추가\n3. 코드에서 936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com를 실제 클라이언트 ID로 교체');
                 return;
