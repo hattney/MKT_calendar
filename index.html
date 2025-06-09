@@ -472,23 +472,23 @@
                     </div>
 
                     <!-- 편집자 로그인 -->
-                    <button class="btn btn-primary" id="adminLoginBtn" onclick="adminLogin()">
+                    <button class="btn btn-primary" id="adminLoginBtn">
                         편집자 로그인
                     </button>
 
                     <!-- 동기화 버튼 -->
-                    <button class="btn btn-success" id="syncBtn" onclick="syncCalendars()">
+                    <button class="btn btn-success" id="syncBtn">
                         <span id="syncIcon">🔄</span>
                         <span id="syncText">동기화</span>
                     </button>
 
                     <!-- 로그아웃 버튼 -->
-                    <button class="btn btn-danger hidden" id="logoutBtn" onclick="adminLogout()">
+                    <button class="btn btn-danger hidden" id="logoutBtn">
                         편집자 로그아웃
                     </button>
 
                     <!-- 설정 토글 -->
-                    <button class="btn btn-secondary" onclick="toggleSettings()">
+                    <button class="btn btn-secondary" id="settingsToggleBtn">
                         ⚙️ 설정
                     </button>
                 </div>
@@ -497,9 +497,9 @@
             <!-- 월 네비게이션 -->
             <div class="month-nav">
                 <div class="month-controls">
-                    <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+                    <button class="nav-btn" id="prevMonthBtn">‹</button>
                     <h2 class="month-title" id="monthTitle">2025년 6월</h2>
-                    <button class="nav-btn" onclick="changeMonth(1)">›</button>
+                    <button class="nav-btn" id="nextMonthBtn">›</button>
                 </div>
                 <div class="calendar-info" id="calendarInfo">
                     편집자가 설정한 캘린더를 확인하세요
@@ -516,7 +516,7 @@
                 <div class="admin-section">
                     <div class="admin-title">📋 편집자 전용</div>
                     <div class="admin-info">편집자 계정: pmktb2c@gmail.com</div>
-                    <button class="btn btn-primary btn-small" id="adminLoginBtn2" onclick="adminLogin()">
+                    <button class="btn btn-primary btn-small" id="adminLoginBtn2">
                         편집자로 로그인
                     </button>
                 </div>
@@ -526,8 +526,8 @@
                     <div class="calendar-controls">
                         <span style="font-weight: 500;">구글 캘린더 목록</span>
                         <div class="control-buttons">
-                            <button class="btn btn-primary btn-small" onclick="selectAllCalendars(true)">전체선택</button>
-                            <button class="btn btn-secondary btn-small" onclick="selectAllCalendars(false)">전체해제</button>
+                            <button class="btn btn-primary btn-small" id="selectAllBtn">전체선택</button>
+                            <button class="btn btn-secondary btn-small" id="deselectAllBtn">전체해제</button>
                         </div>
                     </div>
                     
@@ -574,37 +574,146 @@
         let selectedCalendars = new Set();
         let calendarEvents = {};
         let isSettingsVisible = false;
-        let publicCalendarIds = []; // 편집자가 설정한 공개 캘린더 ID들
-        let publicCalendarSettings = []; // 공개 캘린더 설정 정보
+        let publicCalendarIds = [];
+        let publicCalendarSettings = [];
 
-        // Google API 설정 - 실제 키로 교체해야 함
+        // Google API 설정
         const GOOGLE_CONFIG = {
-            apiKey: 'YOUR_GOOGLE_API_KEY_HERE',        // Google Cloud Console에서 생성한 API 키
-            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
+            apiKey: 'YOUR_GOOGLE_API_KEY_HERE',
+            clientId: 'YOUR_GOOGLE_CLIENT_ID_HERE',
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
         };
 
-        // 임시 테스트용 - API 키 없이도 테스트할 수 있도록 수정
         let isTestMode = false;
-
         const ADMIN_EMAIL = 'pmktb2c@gmail.com';
+
+        // DOM 요소들을 안전하게 가져오는 함수
+        function getElement(id) {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`Element with id '${id}' not found`);
+            }
+            return element;
+        }
+
+        // 이벤트 리스너 등록 함수
+        function attachEventListeners() {
+            const adminLoginBtn = getElement('adminLoginBtn');
+            const adminLoginBtn2 = getElement('adminLoginBtn2');
+            const logoutBtn = getElement('logoutBtn');
+            const syncBtn = getElement('syncBtn');
+            const settingsToggleBtn = getElement('settingsToggleBtn');
+            const prevMonthBtn = getElement('prevMonthBtn');
+            const nextMonthBtn = getElement('nextMonthBtn');
+            const selectAllBtn = getElement('selectAllBtn');
+            const deselectAllBtn = getElement('deselectAllBtn');
+
+            // 편집자 로그인 버튼들
+            if (adminLoginBtn) {
+                adminLoginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('편집자 로그인 버튼 클릭');
+                    adminLogin();
+                });
+            }
+
+            if (adminLoginBtn2) {
+                adminLoginBtn2.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('편집자 로그인 버튼2 클릭');
+                    adminLogin();
+                });
+            }
+
+            // 로그아웃 버튼
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('로그아웃 버튼 클릭');
+                    adminLogout();
+                });
+            }
+
+            // 동기화 버튼
+            if (syncBtn) {
+                syncBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('동기화 버튼 클릭');
+                    syncCalendars();
+                });
+            }
+
+            // 설정 토글 버튼
+            if (settingsToggleBtn) {
+                settingsToggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('설정 토글 버튼 클릭');
+                    toggleSettings();
+                });
+            }
+
+            // 월 네비게이션 버튼들
+            if (prevMonthBtn) {
+                prevMonthBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('이전 월 버튼 클릭');
+                    changeMonth(-1);
+                });
+            }
+
+            if (nextMonthBtn) {
+                nextMonthBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('다음 월 버튼 클릭');
+                    changeMonth(1);
+                });
+            }
+
+            // 전체 선택/해제 버튼들
+            if (selectAllBtn) {
+                selectAllBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('전체 선택 버튼 클릭');
+                    selectAllCalendars(true);
+                });
+            }
+
+            if (deselectAllBtn) {
+                deselectAllBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('전체 해제 버튼 클릭');
+                    selectAllCalendars(false);
+                });
+            }
+        }
 
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 로드 완료, 초기화 시작');
+            
+            // 이벤트 리스너 먼저 등록
+            attachEventListeners();
+            
+            // Google API 초기화
             initializeGoogleAPI();
+            
+            // UI 업데이트
             updateMonthTitle();
             updateCalendarDisplay();
-            loadPublicCalendars(); // 페이지 로드시 공개 캘린더 바로 로드
+            updateLoginStatus();
+            updateCalendarInfo();
+            
+            // 공개 캘린더 로드
+            loadPublicCalendars();
         });
 
         // Google API 초기화
         async function initializeGoogleAPI() {
             console.log('Google API 초기화 시작...');
-            
-            // API 키가 설정되지 않은 경우 테스트 모드로 실행
+            //실제 클라이언트 아이디를 넣어주세요.
             if (GOOGLE_CONFIG.apiKey === 'YOUR_GOOGLE_API_KEY_HERE' || 
-                GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+                GOOGLE_CONFIG.clientId === '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com') {
                 console.warn('Google API 키가 설정되지 않았습니다. 테스트 모드로 실행합니다.');
                 isTestMode = true;
                 updateLoginStatus();
@@ -612,7 +721,6 @@
             }
 
             try {
-                // gapi 로드 확인
                 if (typeof gapi === 'undefined') {
                     console.error('Google API 스크립트가 로드되지 않았습니다.');
                     alert('Google API 로딩에 실패했습니다. 페이지를 새로고침해주세요.');
@@ -635,7 +743,6 @@
 
                 console.log('Google API 초기화 완료');
                 
-                // 자동 로그인 확인
                 const authInstance = gapi.auth2.getAuthInstance();
                 if (authInstance && authInstance.isSignedIn.get()) {
                     const user = authInstance.currentUser.get();
@@ -649,14 +756,12 @@
 
                 updateLoginStatus();
                 
-                // API 초기화 완료 후 공개 캘린더 로드
                 if (!isAdminLoggedIn) {
                     await loadPublicCalendars();
                 }
 
             } catch (error) {
                 console.error('Google API 초기화 실패:', error);
-                // API 초기화 실패해도 기본 기능은 동작하도록
                 isTestMode = true;
                 updateLoginStatus();
                 await loadPublicCalendars();
@@ -671,7 +776,6 @@
                 console.log('테스트 모드에서 로그인');
                 alert('테스트 모드입니다.\n\n실제 Google API 키를 설정하면:\n1. Google Cloud Console에서 API 키 생성\n2. OAuth 2.0 클라이언트 ID 생성\n3. 코드의 GOOGLE_CONFIG 부분에 실제 키 입력\n\n현재는 데모용으로만 동작합니다.');
                 
-                // 테스트용 로그인 시뮬레이션
                 isAdminLoggedIn = true;
                 updateLoginStatus();
                 simulateTestCalendars();
@@ -679,7 +783,6 @@
             }
 
             try {
-                // gapi와 auth2 인스턴스 확인
                 if (typeof gapi === 'undefined' || !gapi.auth2) {
                     console.error('Google API가 준비되지 않았습니다.');
                     alert('Google API가 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.');
@@ -726,8 +829,11 @@
         // 편집자 로그아웃
         async function adminLogout() {
             try {
-                const authInstance = gapi.auth2.getAuthInstance();
-                await authInstance.signOut();
+                if (!isTestMode && gapi && gapi.auth2) {
+                    const authInstance = gapi.auth2.getAuthInstance();
+                    await authInstance.signOut();
+                }
+                
                 isAdminLoggedIn = false;
                 googleCalendars = [];
                 selectedCalendars.clear();
@@ -736,7 +842,6 @@
                 updateCalendarDisplay();
                 updateCalendarInfo();
                 
-                // 로그아웃 후 공개 캘린더 다시 로드
                 setTimeout(async () => {
                     await loadPublicCalendars();
                 }, 500);
@@ -749,37 +854,122 @@
 
         // 로그인 상태 업데이트
         function updateLoginStatus() {
-            const statusDot = document.getElementById('statusDot');
-            const statusText = document.getElementById('statusText');
-            const adminLoginBtn = document.getElementById('adminLoginBtn');
-            const adminLoginBtn2 = document.getElementById('adminLoginBtn2');
-            const logoutBtn = document.getElementById('logoutBtn');
-            const syncBtn = document.getElementById('syncBtn');
-            const syncText = document.getElementById('syncText');
+            const statusDot = getElement('statusDot');
+            const statusText = getElement('statusText');
+            const adminLoginBtn = getElement('adminLoginBtn');
+            const adminLoginBtn2 = getElement('adminLoginBtn2');
+            const logoutBtn = getElement('logoutBtn');
+            const syncBtn = getElement('syncBtn');
+            const syncText = getElement('syncText');
 
             if (isAdminLoggedIn) {
-                statusDot.className = 'status-dot status-connected';
-                statusText.textContent = '편집자 연동됨';
-                adminLoginBtn.classList.add('hidden');
+                if (statusDot) statusDot.className = 'status-dot status-connected';
+                if (statusText) statusText.textContent = '편집자 연동됨';
+                if (adminLoginBtn) adminLoginBtn.classList.add('hidden');
                 if (adminLoginBtn2) adminLoginBtn2.classList.add('hidden');
-                logoutBtn.classList.remove('hidden');
-                syncBtn.disabled = false;
+                if (logoutBtn) logoutBtn.classList.remove('hidden');
+                if (syncBtn) syncBtn.disabled = false;
                 if (syncText) syncText.textContent = '동기화';
             } else {
-                statusDot.className = 'status-dot status-connected';
-                statusText.textContent = '공개 캘린더 보기';
-                adminLoginBtn.classList.remove('hidden');
+                if (statusDot) statusDot.className = 'status-dot status-connected';
+                if (statusText) statusText.textContent = '공개 캘린더 보기';
+                if (adminLoginBtn) adminLoginBtn.classList.remove('hidden');
                 if (adminLoginBtn2) adminLoginBtn2.classList.remove('hidden');
-                logoutBtn.classList.add('hidden');
-                syncBtn.disabled = false;
+                if (logoutBtn) logoutBtn.classList.add('hidden');
+                if (syncBtn) syncBtn.disabled = false;
                 if (syncText) syncText.textContent = '새로고침';
+            }
+        }
+
+        // 동기화 함수
+        async function syncCalendars() {
+            const syncIcon = getElement('syncIcon');
+            const syncBtn = getElement('syncBtn');
+            
+            if (syncIcon) syncIcon.style.animation = 'spin 1s linear infinite';
+            if (syncBtn) syncBtn.disabled = true;
+
+            try {
+                if (isAdminLoggedIn) {
+                    await loadEventsFromGoogle();
+                } else {
+                    await loadPublicCalendars();
+                }
+                
+                setTimeout(() => {
+                    if (syncIcon) syncIcon.style.animation = '';
+                    if (syncBtn) syncBtn.disabled = false;
+                    alert('동기화가 완료되었습니다!');
+                }, 1000);
+
+            } catch (error) {
+                console.error('동기화 실패:', error);
+                if (syncIcon) syncIcon.style.animation = '';
+                if (syncBtn) syncBtn.disabled = false;
+                alert('동기화에 실패했습니다.');
+            }
+        }
+
+        // 설정 패널 토글
+        function toggleSettings() {
+            const settingsPanel = getElement('settingsPanel');
+            if (!settingsPanel) return;
+            
+            isSettingsVisible = !isSettingsVisible;
+            
+            if (isSettingsVisible) {
+                settingsPanel.classList.remove('hidden');
+            } else {
+                settingsPanel.classList.add('hidden');
+            }
+        }
+
+        // 월 변경
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            updateMonthTitle();
+            
+            if (isAdminLoggedIn) {
+                loadEventsFromGoogle();
+            } else {
+                loadPublicCalendars();
+            }
+            
+            updateCalendarDisplay();
+        }
+
+        // 월 제목 업데이트
+        function updateMonthTitle() {
+            const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+            const monthTitle = getElement('monthTitle');
+            if (monthTitle) {
+                monthTitle.textContent = `${currentDate.getFullYear()}년 ${monthNames[currentDate.getMonth()]}`;
+            }
+        }
+
+        // 캘린더 정보 업데이트
+        function updateCalendarInfo() {
+            const calendarInfo = getElement('calendarInfo');
+            if (!calendarInfo) return;
+            
+            if (isAdminLoggedIn) {
+                calendarInfo.textContent = `${selectedCalendars.size}개 캘린더 연동 중`;
+            } else {
+                const publicCount = publicCalendarIds.length;
+                if (publicCount > 0) {
+                    calendarInfo.textContent = `${publicCount}개 공개 캘린더 표시 중`;
+                } else {
+                    calendarInfo.textContent = '편집자가 캘린더를 설정하면 여기에 표시됩니다';
+                }
             }
         }
 
         // 구글 캘린더 목록 로드
         async function loadGoogleCalendars() {
-            const calendarListEl = document.getElementById('calendarList');
-            calendarListEl.innerHTML = '<div class="loading"><div class="spinner"></div>캘린더 목록 로딩 중...</div>';
+            const calendarListEl = getElement('calendarList');
+            if (calendarListEl) {
+                calendarListEl.innerHTML = '<div class="loading"><div class="spinner"></div>캘린더 목록 로딩 중...</div>';
+            }
 
             try {
                 const response = await gapi.client.calendar.calendarList.list();
@@ -787,7 +977,6 @@
                 
                 renderCalendarList();
                 
-                // 기본적으로 primary 캘린더 선택
                 const primaryCalendar = googleCalendars.find(cal => cal.id === 'primary');
                 if (primaryCalendar) {
                     selectedCalendars.add('primary');
@@ -796,13 +985,16 @@
 
             } catch (error) {
                 console.error('캘린더 목록 로드 실패:', error);
-                calendarListEl.innerHTML = '<div style="text-align: center; color: #ef4444;">캘린더 목록 로드에 실패했습니다.</div>';
+                if (calendarListEl) {
+                    calendarListEl.innerHTML = '<div style="text-align: center; color: #ef4444;">캘린더 목록 로드에 실패했습니다.</div>';
+                }
             }
         }
 
         // 캘린더 목록 렌더링
         function renderCalendarList() {
-            const calendarListEl = document.getElementById('calendarList');
+            const calendarListEl = getElement('calendarList');
+            if (!calendarListEl) return;
             
             if (googleCalendars.length === 0) {
                 calendarListEl.innerHTML = '<div style="text-align: center; color: #6b7280;">캘린더가 없습니다.</div>';
@@ -837,7 +1029,6 @@
             }
             updateCalendarInfo();
             
-            // 선택된 캘린더의 공개 상태 저장 (편집자 전용)
             if (isAdminLoggedIn) {
                 savePublicCalendarSettings();
                 loadEventsFromGoogle();
@@ -863,7 +1054,6 @@
 
         // 공개 캘린더 설정 저장 (편집자 전용)
         function savePublicCalendarSettings() {
-            // 선택된 캘린더들의 정보를 함께 저장
             const publicSettings = {
                 calendarIds: Array.from(selectedCalendars),
                 calendarData: googleCalendars.filter(cal => selectedCalendars.has(cal.id)).map(cal => ({
@@ -934,7 +1124,6 @@
         async function loadPublicCalendars() {
             console.log('공개 캘린더 로드 시작...');
             
-            // 로컬 스토리지에서 편집자가 설정한 공개 캘린더 목록 로드
             const savedSettings = localStorage.getItem('publicCalendarSettings');
             
             if (savedSettings) {
@@ -946,7 +1135,6 @@
                     console.log('저장된 공개 캘린더 설정:', settings);
                     
                     if (publicCalendarIds.length > 0) {
-                        // Google API가 준비되었는지 확인
                         if (typeof gapi !== 'undefined' && gapi.client && gapi.client.calendar) {
                             await loadPublicEvents(publicCalendarIds);
                         } else {
@@ -960,7 +1148,6 @@
                         
                         updateCalendarInfo();
                         
-                        // 비로그인 상태에서 설정 패널에 공개 캘린더 목록 표시
                         if (!isAdminLoggedIn) {
                             renderPublicCalendarList();
                         }
@@ -975,9 +1162,8 @@
             } else {
                 console.log('저장된 공개 캘린더 설정이 없습니다.');
                 
-                // 편집자가 아직 설정하지 않은 경우 안내 메시지
                 if (!isAdminLoggedIn) {
-                    const calendarListEl = document.getElementById('calendarList');
+                    const calendarListEl = getElement('calendarList');
                     if (calendarListEl) {
                         calendarListEl.innerHTML = `
                             <div style="text-align: center; padding: 20px; color: #6b7280;">
@@ -1004,7 +1190,6 @@
 
                 for (const calendarId of calendarIds) {
                     try {
-                        // 공개 캘린더는 API 키만으로 접근 가능
                         const response = await gapi.client.calendar.events.list({
                             calendarId: calendarId,
                             timeMin: startTime,
@@ -1047,8 +1232,7 @@
 
         // 공개 캘린더 목록 렌더링 (비로그인 상태)
         function renderPublicCalendarList() {
-            const calendarListEl = document.getElementById('calendarList');
-            
+            const calendarListEl = getElement('calendarList');
             if (!calendarListEl) {
                 console.error('calendarList 요소를 찾을 수 없습니다.');
                 return;
@@ -1087,97 +1271,19 @@
             `;
         }
 
-        // 동기화 함수 (누락된 함수 복원)
-        async function syncCalendars() {
-            const syncIcon = document.getElementById('syncIcon');
-            const syncBtn = document.getElementById('syncBtn');
-            
-            syncIcon.style.animation = 'spin 1s linear infinite';
-            syncBtn.disabled = true;
-
-            try {
-                if (isAdminLoggedIn) {
-                    await loadEventsFromGoogle();
-                } else {
-                    await loadPublicCalendars();
-                }
-                
-                setTimeout(() => {
-                    syncIcon.style.animation = '';
-                    syncBtn.disabled = false;
-                    alert('동기화가 완료되었습니다!');
-                }, 1000);
-
-            } catch (error) {
-                console.error('동기화 실패:', error);
-                syncIcon.style.animation = '';
-                syncBtn.disabled = false;
-                alert('동기화에 실패했습니다.');
-            }
-        }
-
-        // 설정 패널 토글
-        function toggleSettings() {
-            const settingsPanel = document.getElementById('settingsPanel');
-            isSettingsVisible = !isSettingsVisible;
-            
-            if (isSettingsVisible) {
-                settingsPanel.classList.remove('hidden');
-            } else {
-                settingsPanel.classList.add('hidden');
-            }
-        }
-
-        // 월 변경
-        function changeMonth(direction) {
-            currentDate.setMonth(currentDate.getMonth() + direction);
-            updateMonthTitle();
-            
-            if (isAdminLoggedIn) {
-                loadEventsFromGoogle();
-            } else {
-                loadPublicCalendars();
-            }
-            
-            updateCalendarDisplay();
-        }
-
-        // 월 제목 업데이트
-        function updateMonthTitle() {
-            const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
-            document.getElementById('monthTitle').textContent = 
-                `${currentDate.getFullYear()}년 ${monthNames[currentDate.getMonth()]}`;
-        }
-
-        // 캘린더 정보 업데이트
-        function updateCalendarInfo() {
-            const calendarInfo = document.getElementById('calendarInfo');
-            
-            if (isAdminLoggedIn) {
-                calendarInfo.textContent = `${selectedCalendars.size}개 캘린더 연동 중`;
-            } else {
-                const publicCount = publicCalendarIds.length;
-                if (publicCount > 0) {
-                    calendarInfo.textContent = `${publicCount}개 공개 캘린더 표시 중`;
-                } else {
-                    calendarInfo.textContent = '편집자가 캘린더를 설정하면 여기에 표시됩니다';
-                }
-            }
-        }
-
         // 캘린더 화면 업데이트
         function updateCalendarDisplay() {
-            const daysGrid = document.getElementById('daysGrid');
+            const daysGrid = getElement('daysGrid');
+            if (!daysGrid) return;
+            
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
             
-            // 월의 첫날과 마지막날
             const firstDay = new Date(year, month, 1);
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
             const startingDay = firstDay.getDay();
             
-            // 이전 달의 날짜들
             const prevMonth = new Date(year, month, 0);
             const prevMonthDays = prevMonth.getDate();
             
@@ -1194,10 +1300,10 @@
                 let dayClasses = 'day-cell other-month';
                 let dayNumberClasses = 'day-number';
                 
-                if (dayOfWeek === 0) { // 일요일
+                if (dayOfWeek === 0) {
                     dayClasses += ' sunday';
                     dayNumberClasses += ' sunday';
-                } else if (dayOfWeek === 6) { // 토요일
+                } else if (dayOfWeek === 6) {
                     dayClasses += ' saturday';
                     dayNumberClasses += ' saturday';
                 }
@@ -1231,10 +1337,10 @@
                     dayNumberClasses += ' today';
                 }
                 
-                if (dayOfWeek === 0) { // 일요일
+                if (dayOfWeek === 0) {
                     dayClasses += ' sunday';
                     dayNumberClasses += ' sunday';
-                } else if (dayOfWeek === 6) { // 토요일
+                } else if (dayOfWeek === 6) {
                     dayClasses += ' saturday';
                     dayNumberClasses += ' saturday';
                 }
@@ -1253,7 +1359,7 @@
             }
             
             // 다음 달 날짜들
-            const totalCells = 42; // 6주 * 7일
+            const totalCells = 42;
             const remainingCells = totalCells - (startingDay + daysInMonth);
             for (let day = 1; day <= remainingCells; day++) {
                 const date = new Date(year, month + 1, day);
@@ -1264,10 +1370,10 @@
                 let dayClasses = 'day-cell other-month';
                 let dayNumberClasses = 'day-number';
                 
-                if (dayOfWeek === 0) { // 일요일
+                if (dayOfWeek === 0) {
                     dayClasses += ' sunday';
                     dayNumberClasses += ' sunday';
-                } else if (dayOfWeek === 6) { // 토요일
+                } else if (dayOfWeek === 6) {
                     dayClasses += ' saturday';
                     dayNumberClasses += ' saturday';
                 }
@@ -1328,35 +1434,18 @@
             updateCalendarInfo();
         }
 
-        // 이벤트 상세 정보 표시 (클릭시)
-        function showEventDetails(event) {
-            alert(`제목: ${event.title}\n설명: ${event.description || '설명 없음'}\n캘린더: ${event.calendar}`);
-        }
-
-        // 페이지 로드 시 실행
+        // 페이지 로드 시 추가 안전장치
         window.addEventListener('load', function() {
-            console.log('페이지 로드 완료');
-            updateLoginStatus();
-            updateCalendarInfo();
+            console.log('Window load 이벤트 발생');
             
-            // 버튼 이벤트 리스너 재등록 (안전장치)
-            const adminLoginBtn = document.getElementById('adminLoginBtn');
-            const adminLoginBtn2 = document.getElementById('adminLoginBtn2');
-            
-            if (adminLoginBtn) {
-                adminLoginBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('편집자 로그인 버튼 클릭');
-                    adminLogin();
-                });
-            }
-            
-            if (adminLoginBtn2) {
-                adminLoginBtn2.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('편집자 로그인 버튼2 클릭');
-                    adminLogin();
-                });
+            // DOM이 완전히 로드되지 않은 경우 재시도
+            if (!document.getElementById('adminLoginBtn')) {
+                console.log('DOM 요소들이 아직 준비되지 않음, 재시도...');
+                setTimeout(() => {
+                    attachEventListeners();
+                    updateLoginStatus();
+                    updateCalendarInfo();
+                }, 500);
             }
             
             // 2초 후에도 공개 캘린더가 로드되지 않았다면 다시 시도
@@ -1367,6 +1456,15 @@
                 }
             }, 2000);
         });
+
+        // 전역 함수로 노출 (HTML에서 직접 호출하는 경우를 위해)
+        window.adminLogin = adminLogin;
+        window.adminLogout = adminLogout;
+        window.syncCalendars = syncCalendars;
+        window.toggleSettings = toggleSettings;
+        window.changeMonth = changeMonth;
+        window.selectAllCalendars = selectAllCalendars;
+        window.toggleCalendar = toggleCalendar;
     </script>
 </body>
 </html>
