@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -593,9 +593,8 @@
         let publicCalendarSettings = [];
         let isApiReady = false;
 
-        // Google API 설정 - 실제 키로 교체해주세요
+        // Google API 설정 - 실제 클라이언트 아이디로 교체해주세요
         const GOOGLE_CONFIG = {
-            apiKey: 'YOUR_GOOGLE_API_KEY_HERE',
             clientId: 'Y936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
@@ -729,11 +728,10 @@
             
             const statusText = getElement('statusText');
             
-            // API 키 확인
-            if (GOOGLE_CONFIG.apiKey === 'YOUR_GOOGLE_API_KEY_HERE' || 
-                GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
-                console.warn('Google API 키가 설정되지 않았습니다.');
-                if (statusText) statusText.textContent = 'API 키 미설정';
+        // 클라이언트 ID 확인
+                if (GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+                console.warn('클라이언트 아이디를 넣어주세요.');
+                if (statusText) statusText.textContent = 'CLIENT ID 미설정';
                 
                 const apiKeyWarning = getElement('apiKeyWarning');
                 if (apiKeyWarning) apiKeyWarning.style.display = 'block';
@@ -758,7 +756,6 @@
                 });
 
                 await gapi.client.init({
-                    apiKey: GOOGLE_CONFIG.apiKey,
                     clientId: GOOGLE_CONFIG.clientId,
                     discoveryDocs: [GOOGLE_CONFIG.discoveryDoc],
                     scope: GOOGLE_CONFIG.scopes
