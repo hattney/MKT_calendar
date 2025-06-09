@@ -580,7 +580,7 @@
         // Google API 설정 - 실제 키로 교체해야 함
         const GOOGLE_CONFIG = {
             apiKey: 'YOUR_GOOGLE_API_KEY_HERE',        // Google Cloud Console에서 생성한 API 키
-            clientId: '936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
+            clientId: 'Y936288018291-3rrn8jj7ceabs5ho2q1hesrcb17vetj6.apps.googleusercontent.com',    // OAuth 2.0 클라이언트 ID
             discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
             scopes: 'https://www.googleapis.com/auth/calendar.readonly'
         };
@@ -600,6 +600,8 @@
 
         // Google API 초기화
         async function initializeGoogleAPI() {
+            console.log('Google API 초기화 시작...');
+            
             // API 키가 설정되지 않은 경우 테스트 모드로 실행
             if (GOOGLE_CONFIG.apiKey === 'YOUR_GOOGLE_API_KEY_HERE' || 
                 GOOGLE_CONFIG.clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
@@ -610,8 +612,18 @@
             }
 
             try {
-                await new Promise((resolve) => {
-                    gapi.load('client:auth2', resolve);
+                // gapi 로드 확인
+                if (typeof gapi === 'undefined') {
+                    console.error('Google API 스크립트가 로드되지 않았습니다.');
+                    alert('Google API 로딩에 실패했습니다. 페이지를 새로고침해주세요.');
+                    return;
+                }
+
+                await new Promise((resolve, reject) => {
+                    gapi.load('client:auth2', {
+                        callback: resolve,
+                        onerror: reject
+                    });
                 });
 
                 await gapi.client.init({
@@ -625,7 +637,7 @@
                 
                 // 자동 로그인 확인
                 const authInstance = gapi.auth2.getAuthInstance();
-                if (authInstance.isSignedIn.get()) {
+                if (authInstance && authInstance.isSignedIn.get()) {
                     const user = authInstance.currentUser.get();
                     const profile = user.getBasicProfile();
                     if (profile.getEmail() === ADMIN_EMAIL) {
@@ -644,15 +656,19 @@
 
             } catch (error) {
                 console.error('Google API 초기화 실패:', error);
-                alert('Google API 초기화에 실패했습니다. API 키와 클라이언트 ID를 확인해주세요.');
+                // API 초기화 실패해도 기본 기능은 동작하도록
                 isTestMode = true;
                 updateLoginStatus();
+                await loadPublicCalendars();
             }
         }
 
         // 편집자 로그인
         async function adminLogin() {
+            console.log('편집자 로그인 시도...');
+            
             if (isTestMode) {
+                console.log('테스트 모드에서 로그인');
                 alert('테스트 모드입니다.\n\n실제 Google API 키를 설정하면:\n1. Google Cloud Console에서 API 키 생성\n2. OAuth 2.0 클라이언트 ID 생성\n3. 코드의 GOOGLE_CONFIG 부분에 실제 키 입력\n\n현재는 데모용으로만 동작합니다.');
                 
                 // 테스트용 로그인 시뮬레이션
@@ -663,23 +679,47 @@
             }
 
             try {
+                // gapi와 auth2 인스턴스 확인
+                if (typeof gapi === 'undefined' || !gapi.auth2) {
+                    console.error('Google API가 준비되지 않았습니다.');
+                    alert('Google API가 아직 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+                    return;
+                }
+
                 const authInstance = gapi.auth2.getAuthInstance();
+                if (!authInstance) {
+                    console.error('Google Auth2 인스턴스를 가져올 수 없습니다.');
+                    alert('Google 로그인 서비스에 문제가 있습니다. 페이지를 새로고침해주세요.');
+                    return;
+                }
+
+                console.log('Google 로그인 팝업 표시...');
                 const user = await authInstance.signIn();
                 const profile = user.getBasicProfile();
+                const email = profile.getEmail();
                 
-                if (profile.getEmail() === ADMIN_EMAIL) {
+                console.log('로그인한 이메일:', email);
+                
+                if (email === ADMIN_EMAIL) {
                     isAdminLoggedIn = true;
                     updateLoginStatus();
                     await loadGoogleCalendars();
                     updateCalendarInfo();
                     console.log('편집자 로그인 완료');
+                    alert('편집자 로그인이 완료되었습니다!');
                 } else {
-                    alert('편집자 계정(pmktb2c@gmail.com)으로만 로그인 가능합니다.');
+                    alert(`편집자 계정(${ADMIN_EMAIL})으로만 로그인 가능합니다.\n현재 로그인: ${email}`);
                     authInstance.signOut();
                 }
             } catch (error) {
                 console.error('로그인 실패:', error);
-                alert('로그인에 실패했습니다.');
+                if (error.error === 'popup_closed_by_user') {
+                    alert('로그인이 취소되었습니다.');
+                } else if (error.error === 'access_denied') {
+                    alert('로그인 권한이 거부되었습니다.');
+                } else {
+                    alert('로그인에 실패했습니다: ' + (error.details || error.message || '알 수 없는 오류'));
+                }
             }
         }
 
@@ -1284,6 +1324,43 @@
             updateCalendarDisplay();
             updateCalendarInfo();
         }
+            googleCalendars = [
+                {
+                    id: 'primary',
+                    summary: '내 캘린더',
+                    description: '기본 개인 캘린더',
+                    backgroundColor: '#FF6B6B'
+                },
+                {
+                    id: 'marketing@company.com',
+                    summary: '마케팅 팀',
+                    description: '마케팅 부서 캘린더',
+                    backgroundColor: '#4ECDC4'
+                },
+                {
+                    id: 'holidays@group.calendar.google.com',
+                    summary: '대한민국 공휴일',
+                    description: '국가 공휴일 및 기념일',
+                    backgroundColor: '#96CEB4'
+                }
+            ];
+            
+            renderCalendarList();
+            selectedCalendars.add('primary');
+            
+            // 테스트용 이벤트
+            calendarEvents = {
+                '2025-06-15': [
+                    { id: '1', title: '현충일', calendar: 'holidays', color: '#96CEB4' }
+                ],
+                '2025-06-06': [
+                    { id: '2', title: '테스트 이벤트', calendar: 'primary', color: '#FF6B6B' }
+                ]
+            };
+            
+            updateCalendarDisplay();
+            updateCalendarInfo();
+        }
 
         // 이벤트 상세 정보 표시 (클릭시)
         function showEventDetails(event) {
@@ -1295,6 +1372,26 @@
             console.log('페이지 로드 완료');
             updateLoginStatus();
             updateCalendarInfo();
+            
+            // 버튼 이벤트 리스너 재등록 (안전장치)
+            const adminLoginBtn = document.getElementById('adminLoginBtn');
+            const adminLoginBtn2 = document.getElementById('adminLoginBtn2');
+            
+            if (adminLoginBtn) {
+                adminLoginBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('편집자 로그인 버튼 클릭');
+                    adminLogin();
+                });
+            }
+            
+            if (adminLoginBtn2) {
+                adminLoginBtn2.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('편집자 로그인 버튼2 클릭');
+                    adminLogin();
+                });
+            }
             
             // 2초 후에도 공개 캘린더가 로드되지 않았다면 다시 시도
             setTimeout(() => {
